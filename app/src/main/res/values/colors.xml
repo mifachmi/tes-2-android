@@ -12,6 +12,7 @@
     <color name="divider">#DDDDDD</color>
     <color name="green_icon">#80C250</color>
     <color name="header_table">#F6F6F6</color>
+    <color name="stroke_table">#D7D7D7</color>
     <color name="transparent">#00FFFFFF</color>
     <color name="grey_text">#AAAAAA</color>
     <color name="grey_EC">#ECECEC</color>

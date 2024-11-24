@@ -5,11 +5,9 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
-import id.mifachmi.tesdua.databinding.HeaderDaftarUangMasukPortraitBinding
+import id.mifachmi.tesdua.databinding.HeaderTableUangMasukBinding
 import id.mifachmi.tesdua.databinding.ItemUangMasukBinding
-import id.mifachmi.tesdua.model.Header
 import id.mifachmi.tesdua.model.IncomeViewItem
-import id.mifachmi.tesdua.model.Item
 import id.mifachmi.tesdua.utils.formatRupiah
 
 class DaftarUangMasukPortraitAdapter(
@@ -27,7 +25,7 @@ class DaftarUangMasukPortraitAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         return when (viewType) {
             TYPE_HEADER -> {
-                val binding = HeaderDaftarUangMasukPortraitBinding.inflate(
+                val binding = HeaderTableUangMasukBinding.inflate(
                     LayoutInflater.from(parent.context),
                     parent,
                     false
@@ -63,14 +61,14 @@ class DaftarUangMasukPortraitAdapter(
         return if (data[position] is IncomeViewItem.Header) TYPE_HEADER else TYPE_ITEM
     }
 
-    inner class HeaderViewHolder(private val binding: HeaderDaftarUangMasukPortraitBinding) :
+    inner class HeaderViewHolder(private val binding: HeaderTableUangMasukBinding) :
         RecyclerView.ViewHolder(binding.root) {
         @SuppressLint("SetTextI18n")
         fun bind(dataHeader: IncomeViewItem.Header) {
             println(dataHeader)
             binding.apply {
                 tvDate.text = dataHeader.date
-                tvAmount.text = formatRupiah(dataHeader.amount)
+                tvAmount?.text = formatRupiah(dataHeader.amount)
             }
         }
     }

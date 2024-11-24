@@ -27,4 +27,5 @@ sealed class IncomeViewItem {
         val type: String,
         val imageUri: String?
     ) : IncomeViewItem()
+    data class Footer(val total: String) : IncomeViewItem()
 }

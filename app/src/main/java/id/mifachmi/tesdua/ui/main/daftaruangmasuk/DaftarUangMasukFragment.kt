@@ -1,28 +1,24 @@
 package id.mifachmi.tesdua.ui.main.daftaruangmasuk
 
-import android.content.Intent
 import android.content.res.Configuration
-import android.graphics.BitmapFactory
-import android.net.Uri
 import android.os.Bundle
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import id.mifachmi.tesdua.R
 import id.mifachmi.tesdua.data.local.entity.IncomeEntity
 import id.mifachmi.tesdua.databinding.FragmentDaftarUangMasukBinding
-import id.mifachmi.tesdua.model.Item
 import id.mifachmi.tesdua.model.IncomeViewItem
+import id.mifachmi.tesdua.ui.adapter.DaftarUangMasukLandscapeAdapter
 import id.mifachmi.tesdua.ui.adapter.DaftarUangMasukPortraitAdapter
 import id.mifachmi.tesdua.ui.inputuangmasuk.InputUangMasukFragment
 import id.mifachmi.tesdua.utils.ViewModelFactory
 import id.mifachmi.tesdua.utils.convertTimestampToString
+import id.mifachmi.tesdua.utils.formatRupiah
 
 class DaftarUangMasukFragment : Fragment() {
 
@@ -49,7 +45,7 @@ class DaftarUangMasukFragment : Fragment() {
 
         populateData()
 
-        binding.btnCreateTransaction?.setOnClickListener {
+        binding.btnCreateTransaction.setOnClickListener {
             goToFragmentInputUangMasuk()
         }
     }
@@ -57,11 +53,11 @@ class DaftarUangMasukFragment : Fragment() {
     private fun populateData() {
         viewModel.getAllData().observe(viewLifecycleOwner) {
             if (it.isEmpty()) {
-                binding.rvIncomeList?.visibility = View.GONE
-                binding.tvEmptyData?.visibility = View.VISIBLE
+                binding.rvIncomeList.visibility = View.GONE
+                binding.tvEmptyData.visibility = View.VISIBLE
             } else {
-                binding.rvIncomeList?.visibility = View.VISIBLE
-                binding.tvEmptyData?.visibility = View.GONE
+                binding.rvIncomeList.visibility = View.VISIBLE
+                binding.tvEmptyData.visibility = View.GONE
                 showUangMasukRvPortrait(it)
             }
         }
@@ -70,7 +66,7 @@ class DaftarUangMasukFragment : Fragment() {
     private fun showUangMasukRvPortrait(data: List<IncomeEntity>) {
         val orientation = resources.configuration.orientation
 
-        binding.rvIncomeList?.apply {
+        binding.rvIncomeList.apply {
             layoutManager = LinearLayoutManager(
                 requireContext(),
                 LinearLayoutManager.VERTICAL,
@@ -100,12 +96,16 @@ class DaftarUangMasukFragment : Fragment() {
                 )
 
                 adapter = rvAdapter
+            } else {
+                val mappedData = mapToViewLandscape(data)
+                val rvAdapter = DaftarUangMasukLandscapeAdapter(mappedData)
+                adapter = rvAdapter
             }
         }
     }
 
-    private fun mapToView(transactions: List<IncomeEntity>): List<IncomeViewItem> {
-        return transactions.groupBy { convertTimestampToString(it.date!!) }
+    private fun mapToView(dataIncome: List<IncomeEntity>): List<IncomeViewItem> {
+        return dataIncome.groupBy { convertTimestampToString(it.date!!) }
             .flatMap { (date, transactionsForDate) ->
                 val totalAmount = transactionsForDate.sumOf { it.amount }
                 listOf(IncomeViewItem.Header(date, totalAmount)) +
@@ -122,6 +122,59 @@ class DaftarUangMasukFragment : Fragment() {
                             )
                         }
             }
+    }
+
+    private fun mapToViewLandscape(dataIncome: List<IncomeEntity>): List<IncomeViewItem> {
+        if (dataIncome.isEmpty()) return emptyList()
+
+        return dataIncome
+            .groupBy { it.date }
+            .flatMap { (date, transactions) ->
+                buildTransactionGroup(date.toString(), transactions)
+            }
+    }
+
+    private fun buildTransactionGroup(
+        date: String?,
+        transactions: List<IncomeEntity>
+    ): List<IncomeViewItem> {
+        if (date == null) return emptyList()
+
+        val groupItems = mutableListOf<IncomeViewItem>()
+        val totalAmount = transactions.sumOf { it.amount }
+
+        // Add header
+        groupItems.add(
+            IncomeViewItem.Header(
+                date = convertTimestampToString(date.toLong()),
+                amount = totalAmount
+            )
+        )
+
+        // Add transaction items
+        transactions.forEach { transaction ->
+            groupItems.add(
+                IncomeViewItem.Item(
+                    id = transaction.id,
+                    time = transaction.time ?: "",
+                    to = transaction.to ?: "",
+                    from = transaction.from ?: "",
+                    description = transaction.description ?: "",
+                    amount = transaction.amount,
+                    type = transaction.type ?: "",
+                    imageUri = transaction.imageUri
+                )
+            )
+        }
+
+        // Add footer
+        groupItems.add(
+            IncomeViewItem.Footer(
+                total = formatRupiah(totalAmount)
+            )
+        )
+
+        return groupItems
     }
 
     private fun goToDetail(item: IncomeViewItem.Item) {
