@@ -1,13 +1,15 @@
 package id.mifachmi.tesdua.ui.inputuangmasuk
 
 import android.content.Intent
+import android.content.res.Configuration.ORIENTATION_PORTRAIT
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.LinearLayout
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.PickVisualMediaRequest
@@ -57,24 +59,24 @@ class InputUangMasukFragment(val isEdit: Boolean) : Fragment() {
     }
 
     private fun setupToolbar() {
-        binding.toolbar?.apply {
+        binding.toolbar.apply {
             setNavigationIcon(R.drawable.baseline_arrow_back_24)
             setNavigationOnClickListener {
                 parentFragmentManager.popBackStack()
             }
         }
 
-        binding.btnSave?.setOnClickListener {
+        binding.btnSave.setOnClickListener {
             saveData()
         }
     }
 
     private fun setupFormData() {
         binding.apply {
-            etToWho?.doOnTextChanged { text, _, _, _ -> validateEditText(etToWho, text) }
-            etFromWho?.doOnTextChanged { text, _, _, _ -> validateEditText(etFromWho, text) }
-            etAmount?.doOnTextChanged { text, _, _, _ -> validateEditText(etAmount, text) }
-            etNotes?.doOnTextChanged { text, _, _, _ -> validateEditText(etNotes, text) }
+            etToWho.doOnTextChanged { text, _, _, _ -> validateEditText(etToWho, text) }
+            etFromWho.doOnTextChanged { text, _, _, _ -> validateEditText(etFromWho, text) }
+            etAmount.doOnTextChanged { text, _, _, _ -> validateEditText(etAmount, text) }
+            etNotes.doOnTextChanged { text, _, _, _ -> validateEditText(etNotes, text) }
         }
     }
 
@@ -84,11 +86,11 @@ class InputUangMasukFragment(val isEdit: Boolean) : Fragment() {
     }
 
     private fun handleIncomeType() {
-        binding.etTypeIncome?.setOnClickListener {
+        binding.etTypeIncome.setOnClickListener {
             showIncomeTypeDialog()
         }
 
-        binding.tvMoreInfo?.setOnClickListener {
+        binding.tvMoreInfo.setOnClickListener {
             showIncomeTypeInformation()
         }
     }
@@ -104,12 +106,12 @@ class InputUangMasukFragment(val isEdit: Boolean) : Fragment() {
                 .show()
 
             pendapatanLainOption.setOnClickListener {
-                binding.etTypeIncome?.setText(pendapatanLainOption.text)
+                binding.etTypeIncome.setText(pendapatanLainOption.text)
                 mainDialog.dismiss()
             }
 
             nonPendapatanOption.setOnClickListener {
-                binding.etTypeIncome?.setText(nonPendapatanOption.text)
+                binding.etTypeIncome.setText(nonPendapatanOption.text)
                 mainDialog.dismiss()
             }
 
@@ -118,13 +120,34 @@ class InputUangMasukFragment(val isEdit: Boolean) : Fragment() {
     }
 
     private fun showIncomeTypeInformation() {
-        val incomeTypeInfoBottomSheet = IncomeTypeBottomSheet()
-        incomeTypeInfoBottomSheet.show(parentFragmentManager, incomeTypeInfoBottomSheet.tag)
+        val deviceOrientation = resources.configuration.orientation
+        if (deviceOrientation == ORIENTATION_PORTRAIT) {
+            val incomeTypeInfoBottomSheet = IncomeTypeBottomSheet()
+            incomeTypeInfoBottomSheet.show(parentFragmentManager, incomeTypeInfoBottomSheet.tag)
+        } else {
+            showIncomeTypeInformationLandscape()
+        }
+    }
+
+    private fun showIncomeTypeInformationLandscape() {
+        val dialogView = layoutInflater.inflate(R.layout.sheet_income_type_info, null)
+        context?.let { ctx ->
+            val mainDialog = MaterialAlertDialogBuilder(ctx)
+                .setView(dialogView)
+                .show()
+            mainDialog.show()
+        }
     }
 
     private fun handleUploadPhoto() {
-        binding.flPhoto?.setOnClickListener {
-            showImageSourceDialog()
+        binding.flPhoto.setOnClickListener {
+            if (isEdit) {
+                binding.tvDummyFoto.visibility = View.GONE
+                showImageDialog(currentImageUri.toString())
+            } else {
+                binding.tvDummyFoto.visibility = View.VISIBLE
+                showImageSourceDialog()
+            }
         }
     }
 
@@ -191,28 +214,56 @@ class InputUangMasukFragment(val isEdit: Boolean) : Fragment() {
     }
 
     private fun showImage() {
+        println("currentImageUri: $currentImageUri")
         currentImageUri.let {
-            binding.ivPhoto?.setImageURI(it)
+            binding.ivPhoto.setImageURI(it)
         }
 
         setupEditAndDeletePhoto()
+
+
+    }
+
+    private fun showImageDialog(imageUri: String) {
+        println("imageUri: $imageUri")
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_image, null)
+        val ivPhoto = dialogView.findViewById<ImageView>(R.id.ivImage)
+        val resolver = requireContext().contentResolver
+        val uri = Uri.parse(imageUri)
+
+        resolver.takePersistableUriPermission(
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION
+        )
+
+        val bitmap = resolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it)
+        }
+
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setView(dialogView)
+            .create()
+
+        ivPhoto.setImageBitmap(bitmap)
+
+        dialog.show()
     }
 
     private fun setupEditAndDeletePhoto() {
         if (currentImageUri != null) {
             binding.apply {
-                flPhoto?.setOnClickListener {
+                flPhoto.setOnClickListener {
                     return@setOnClickListener
                 }
 
-                llAction?.visibility = View.VISIBLE
-                btnChangeImage?.setOnClickListener {
+                llAction.visibility = View.VISIBLE
+                btnChangeImage.setOnClickListener {
                     showImageSourceDialog()
                 }
 
-                btnDeleteImage?.setOnClickListener {
+                btnDeleteImage.setOnClickListener {
                     currentImageUri = null
-                    ivPhoto?.setImageDrawable(
+                    ivPhoto.setImageDrawable(
                         ContextCompat.getDrawable(
                             requireContext(),
                             R.color.grey_EC
@@ -224,15 +275,16 @@ class InputUangMasukFragment(val isEdit: Boolean) : Fragment() {
     }
 
     private fun saveData(): Boolean {
-        val from = binding.etFromWho?.text.toString()
-        val to = binding.etToWho?.text.toString()
-        val amount = binding.etAmount?.text.toString()
-        val note = binding.etNotes?.text.toString()
-        val incomeType = binding.etTypeIncome?.text.toString()
+        val from = binding.etFromWho.text.toString()
+        val to = binding.etToWho.text.toString()
+        val amount = binding.etAmount.text.toString()
+        val note = binding.etNotes.text.toString()
+        val incomeType = binding.etTypeIncome.text.toString()
         val currentDate = Date()
 
         return if (from.isNotEmpty() && to.isNotEmpty() && amount.isNotEmpty() && note.isNotEmpty() && incomeType.isNotEmpty()) {
             try {
+                val txtToast: String
                 if (isEdit) {
                     val id = arguments?.getInt("id", -1) ?: -1
                     val updatedData = IncomeEntity(
@@ -247,6 +299,7 @@ class InputUangMasukFragment(val isEdit: Boolean) : Fragment() {
                         imageUri = currentImageUri.toString(),
                     )
                     viewModel.updateData(updatedData)
+                    txtToast = "Updated"
                 } else {
                     viewModel.insertData(
                         time = getCurrentTime(),
@@ -258,9 +311,8 @@ class InputUangMasukFragment(val isEdit: Boolean) : Fragment() {
                         date = currentDate.time,
                         imageUri = currentImageUri.toString()
                     )
+                    txtToast = "Saved"
                 }
-
-                val txtToast = if (isEdit) "Updated" else "Saved"
                 Toast.makeText(requireContext(), txtToast, Toast.LENGTH_SHORT)
                     .show()
                 parentFragmentManager.popBackStack()
@@ -290,13 +342,22 @@ class InputUangMasukFragment(val isEdit: Boolean) : Fragment() {
                 val description = args?.getString("description", "") ?: ""
                 val amount = args?.getInt("amount", 0) ?: 0
                 val type = args?.getString("type", "") ?: ""
+                currentImageUri = Uri.parse(args?.getString("imageUri", ""))
 
-                binding.etToWho?.setText(to)
-                binding.etFromWho?.setText(from)
-                binding.etNotes?.setText(description)
-                binding.etAmount?.setText(amount.toString())
-                binding.etTypeIncome?.setText(type)
+                binding.etToWho.setText(to)
+                binding.etFromWho.setText(from)
+                binding.etNotes.setText(description)
+                binding.etAmount.setText(amount.toString())
+                binding.etTypeIncome.setText(type)
+
+                showImage()
             }
+        }
+    }
+
+    private fun zoomImage() {
+        binding.ivPhoto.setOnClickListener {
+            // TODO: Implement zoom image
         }
     }
 

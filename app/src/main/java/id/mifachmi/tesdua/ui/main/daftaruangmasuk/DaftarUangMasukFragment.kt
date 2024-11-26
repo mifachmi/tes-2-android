@@ -1,14 +1,21 @@
 package id.mifachmi.tesdua.ui.main.daftaruangmasuk
 
+import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
+import androidx.core.util.Pair
 import androidx.fragment.app.viewModels
-import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.material.datepicker.MaterialDatePicker
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import id.mifachmi.tesdua.R
 import id.mifachmi.tesdua.data.local.entity.IncomeEntity
 import id.mifachmi.tesdua.databinding.FragmentDaftarUangMasukBinding
@@ -31,6 +38,9 @@ class DaftarUangMasukFragment : Fragment() {
         )
     }
 
+    private var startDate: Long = 0
+    private var endDate: Long = 0
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -44,10 +54,52 @@ class DaftarUangMasukFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         populateData()
+        setupDatePicker()
 
         binding.btnCreateTransaction.setOnClickListener {
             goToFragmentInputUangMasuk()
         }
+    }
+
+    private fun setupDatePicker() {
+        binding.ivDatePicker.setOnClickListener {
+            val dateRangePicker =
+                MaterialDatePicker.Builder.dateRangePicker()
+                    .setTitleText("Select dates")
+                    .setSelection(
+                        Pair(
+                            MaterialDatePicker.thisMonthInUtcMilliseconds(),
+                            MaterialDatePicker.todayInUtcMilliseconds()
+                        )
+                    )
+                    .build()
+
+            dateRangePicker.show(parentFragmentManager, dateRangePicker.toString())
+            dateRangePicker.addOnPositiveButtonClickListener {
+                startDate = dateRangePicker.selection?.first ?: 0
+                endDate = dateRangePicker.selection?.second ?: 0
+
+                val strStartDate = convertTimestampToString(dateRangePicker.selection?.first ?: 0)
+                val strEndDate = convertTimestampToString(dateRangePicker.selection?.second ?: 0)
+                binding.tvDateRange.text = "$strStartDate - $strEndDate"
+
+                filterDataByDateRange()
+            }
+        }
+    }
+
+    private fun filterDataByDateRange() {
+        viewModel.getDataByDateRange(startDate, endDate)
+            .observe(viewLifecycleOwner) { data ->
+                if (data.isEmpty()) {
+                    binding.rvIncomeList.visibility = View.GONE
+                    binding.tvEmptyData.visibility = View.VISIBLE
+                } else {
+                    binding.rvIncomeList.visibility = View.VISIBLE
+                    binding.tvEmptyData.visibility = View.GONE
+                    showUangMasukRvPortrait(data)
+                }
+            }
     }
 
     private fun populateData() {
@@ -71,13 +123,6 @@ class DaftarUangMasukFragment : Fragment() {
                 requireContext(),
                 LinearLayoutManager.VERTICAL,
                 false
-            )
-
-            addItemDecoration(
-                DividerItemDecoration(
-                    requireContext(),
-                    LinearLayoutManager.VERTICAL
-                )
             )
 
             if (orientation == Configuration.ORIENTATION_PORTRAIT) {
@@ -124,14 +169,24 @@ class DaftarUangMasukFragment : Fragment() {
             }
     }
 
-    private fun mapToViewLandscape(dataIncome: List<IncomeEntity>): List<IncomeViewItem> {
+    private fun mapToViewLandscape(dataIncome: List<IncomeEntity>): List<Any> {
         if (dataIncome.isEmpty()) return emptyList()
 
-        return dataIncome
-            .groupBy { it.date }
-            .flatMap { (date, transactions) ->
-                buildTransactionGroup(date.toString(), transactions)
-            }
+        val groupedByDate = dataIncome.groupBy { convertTimestampToString(it.date!!) }
+        val keyData = groupedByDate.keys.first()
+        val valueData = groupedByDate.values.flatten()
+        val mappedValueData = buildTransactionGroup(keyData, valueData)
+        Log.d("mapToViewLandscape 3", "mapToViewLandscape 3: $mappedValueData")
+
+        val newMappedValueData = mapToNestedStructure(mappedValueData)
+        Log.d("mapToViewLandscape 4", "mapToViewLandscape 4: $newMappedValueData")
+
+        return newMappedValueData
+//        return dataIncome
+//            .groupBy { it.date }
+//            .flatMap { (date, transactions) ->
+//                buildTransactionGroup(date.toString(), transactions)
+//            }
     }
 
     private fun buildTransactionGroup(
@@ -140,41 +195,49 @@ class DaftarUangMasukFragment : Fragment() {
     ): List<IncomeViewItem> {
         if (date == null) return emptyList()
 
-        val groupItems = mutableListOf<IncomeViewItem>()
+        val combinedData = mutableListOf<IncomeViewItem>()
+        val groupItems = mutableListOf<IncomeViewItem.Item>()
         val totalAmount = transactions.sumOf { it.amount }
 
         // Add header
-        groupItems.add(
-            IncomeViewItem.Header(
-                date = convertTimestampToString(date.toLong()),
-                amount = totalAmount
-            )
+        val headerData = IncomeViewItem.Header(
+            date = date,
+            amount = transactions.sumOf { it.amount }
         )
 
         // Add transaction items
-        transactions.forEach { transaction ->
-            groupItems.add(
-                IncomeViewItem.Item(
-                    id = transaction.id,
-                    time = transaction.time ?: "",
-                    to = transaction.to ?: "",
-                    from = transaction.from ?: "",
-                    description = transaction.description ?: "",
-                    amount = transaction.amount,
-                    type = transaction.type ?: "",
-                    imageUri = transaction.imageUri
-                )
+        groupItems.addAll(transactions.map { transaction ->
+            IncomeViewItem.Item(
+                id = transaction.id,
+                time = transaction.time ?: "",
+                to = transaction.to ?: "",
+                from = transaction.from ?: "",
+                description = transaction.description ?: "",
+                amount = transaction.amount,
+                type = transaction.type ?: "",
+                imageUri = transaction.imageUri
             )
-        }
+        })
 
         // Add footer
-        groupItems.add(
-            IncomeViewItem.Footer(
-                total = formatRupiah(totalAmount)
-            )
+        val footerData = IncomeViewItem.Footer(
+            total = formatRupiah(totalAmount)
         )
 
-        return groupItems
+        combinedData.apply {
+            add(headerData)
+            addAll(groupItems)
+            add(footerData)
+        }
+        return combinedData
+    }
+
+    private fun mapToNestedStructure(data: List<Any>): List<Any> {
+        val header = data.firstOrNull { it is IncomeViewItem.Header } as? IncomeViewItem.Header
+        val items = data.filterIsInstance<IncomeViewItem.Item>()
+        val footer = data.lastOrNull { it is IncomeViewItem.Footer } as? IncomeViewItem.Footer
+
+        return listOfNotNull(header, items.ifEmpty { null }, footer)
     }
 
     private fun goToDetail(item: IncomeViewItem.Item) {
@@ -187,6 +250,7 @@ class DaftarUangMasukFragment : Fragment() {
                 putString("description", item.description)
                 putInt("amount", item.amount)
                 putString("type", item.type)
+                putString("imageUri", item.imageUri)
             }
         }
 
@@ -211,6 +275,27 @@ class DaftarUangMasukFragment : Fragment() {
 
     private fun showImageDialog(imageUri: String) {
         println("imageUri: $imageUri")
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_image, null)
+        val ivPhoto = dialogView.findViewById<ImageView>(R.id.ivImage)
+        val resolver = requireContext().contentResolver
+        val uri = Uri.parse(imageUri)
+
+        resolver.takePersistableUriPermission(
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION
+        )
+
+        val bitmap = resolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it)
+        }
+
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setView(dialogView)
+            .create()
+
+        ivPhoto.setImageBitmap(bitmap)
+
+        dialog.show()
     }
 
     override fun onDestroy() {

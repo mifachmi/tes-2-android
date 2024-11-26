@@ -1,11 +1,12 @@
 package id.mifachmi.tesdua.ui.adapter
 
-import android.annotation.SuppressLint
+import android.util.Log
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
+import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import id.mifachmi.tesdua.R
 import id.mifachmi.tesdua.databinding.FooterTableUangMasukBinding
 import id.mifachmi.tesdua.databinding.HeaderTableUangMasukBinding
 import id.mifachmi.tesdua.databinding.ItemInsideItemUangMasukBinding
@@ -13,8 +14,9 @@ import id.mifachmi.tesdua.databinding.ItemUangMasukBinding
 import id.mifachmi.tesdua.model.IncomeViewItem
 import id.mifachmi.tesdua.utils.formatRupiah
 
-class DaftarUangMasukLandscapeAdapter(private val data: List<IncomeViewItem>) :
+class DaftarUangMasukLandscapeAdapter(private val data: List<Any>) :
     RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+
     companion object {
         private const val TYPE_HEADER = 0
         private const val TYPE_CHILD_ITEM = 1
@@ -22,6 +24,7 @@ class DaftarUangMasukLandscapeAdapter(private val data: List<IncomeViewItem>) :
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        Log.d("DaftarUangMasukLandscapeAdapter", "data: $data")
         return when (viewType) {
             TYPE_HEADER -> {
                 val binding = HeaderTableUangMasukBinding.inflate(
@@ -61,7 +64,7 @@ class DaftarUangMasukLandscapeAdapter(private val data: List<IncomeViewItem>) :
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         when (holder) {
             is HeaderViewHolder -> holder.bind(data[position] as IncomeViewItem.Header)
-            is ChildItemViewHolder -> holder.bind(data[position] as IncomeViewItem.Item)
+            is ChildItemViewHolder -> holder.bind(data[position] as List<IncomeViewItem.Item>)
             is FooterViewHolder -> holder.bind(data[position] as IncomeViewItem.Footer)
         }
     }
@@ -69,8 +72,11 @@ class DaftarUangMasukLandscapeAdapter(private val data: List<IncomeViewItem>) :
     override fun getItemViewType(position: Int): Int {
         return when (data[position]) {
             is IncomeViewItem.Header -> TYPE_HEADER
-            is IncomeViewItem.Item -> TYPE_CHILD_ITEM
+            is List<*> -> TYPE_CHILD_ITEM
             is IncomeViewItem.Footer -> TYPE_FOOTER
+            else -> {
+                throw IllegalArgumentException("Invalid type of data $position")
+            }
         }
     }
 
@@ -81,18 +87,26 @@ class DaftarUangMasukLandscapeAdapter(private val data: List<IncomeViewItem>) :
         }
     }
 
-    inner class ChildItemViewHolder(binding: ItemUangMasukBinding) :
+    inner class ChildItemViewHolder(private val binding: ItemUangMasukBinding) :
         RecyclerView.ViewHolder(binding.root) {
-        @SuppressLint("NotifyDataSetChanged")
-        fun bind(item: IncomeViewItem.Item) {
-            val childRv: RecyclerView = itemView.findViewById(R.id.rvItem)
-            childRv.apply {
-                layoutManager =
-                    LinearLayoutManager(itemView.context, LinearLayoutManager.VERTICAL, false)
-                setHasFixedSize(true)
-                isNestedScrollingEnabled = false
+        fun bind(item: List<IncomeViewItem.Item>) {
+            binding.apply {
+                header?.root?.visibility = View.GONE
+                rvItem?.apply {
+                    layoutManager =
+                        LinearLayoutManager(itemView.context, LinearLayoutManager.VERTICAL, false)
+                    addItemDecoration(
+                        DividerItemDecoration(
+                            itemView.context,
+                            LinearLayoutManager.VERTICAL
+                        )
+                    )
+                    setHasFixedSize(false)
+                    isNestedScrollingEnabled = false
+                    adapter = ChildDaftarUangMasukLandscapeAdapter(item)
+                }
+                footer?.root?.visibility = View.GONE
             }
-            childRv.adapter = ChildDaftarUangMasukLandscapeAdapter(listOf(item))
         }
     }
 
@@ -121,17 +135,23 @@ class ChildDaftarUangMasukLandscapeAdapter(private val data: List<IncomeViewItem
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-        (holder as ItemViewHolder).bind(data[position])
+        (holder as ItemViewHolder).bind(data)
     }
 
     inner class ItemViewHolder(private val binding: ItemInsideItemUangMasukBinding) :
         RecyclerView.ViewHolder(binding.root) {
-        fun bind(item: IncomeViewItem.Item) {
-            binding.tvTime?.text = item.time
-            binding.tvToWho?.text = item.to
-            binding.tvFromWho?.text = item.from
-            binding.tvNotes?.text = item.description
-            binding.tvAmount?.text = formatRupiah(item.amount)
+        fun bind(item: List<IncomeViewItem.Item>) {
+            bindItem(item[adapterPosition])
+        }
+
+        private fun bindItem(item: IncomeViewItem.Item) {
+            binding.apply {
+                tvTime?.text = item.time
+                tvToWho?.text = item.to
+                tvFromWho?.text = item.from
+                tvNotes?.text = item.description
+                tvAmount?.text = formatRupiah(item.amount)
+            }
         }
     }
 
