@@ -140,12 +140,29 @@ class InputUangMasukFragment(val isEdit: Boolean) : Fragment() {
     }
 
     private fun handleUploadPhoto() {
-        binding.flPhoto.setOnClickListener {
-            if (isEdit) {
+        println(isEdit)
+        if (isEdit) {
+            if (currentImageUri != null) {
                 binding.tvDummyFoto.visibility = View.GONE
-                showImageDialog(currentImageUri.toString())
+                binding.llAction.visibility = View.VISIBLE
+                showImage()
+                binding.flPhoto.setOnClickListener {
+                    println(currentImageUri)
+                    if (currentImageUri != null)
+                        showImageDialog(currentImageUri.toString())
+                    else
+                        showImageSourceDialog()
+                }
             } else {
                 binding.tvDummyFoto.visibility = View.VISIBLE
+                binding.llAction.visibility = View.GONE
+                binding.flPhoto.setOnClickListener {
+                    showImageSourceDialog()
+                }
+            }
+        } else {
+            binding.tvDummyFoto.visibility = View.VISIBLE
+            binding.flPhoto.setOnClickListener {
                 showImageSourceDialog()
             }
         }
@@ -220,7 +237,6 @@ class InputUangMasukFragment(val isEdit: Boolean) : Fragment() {
         }
 
         setupEditAndDeletePhoto()
-
 
     }
 
@@ -349,8 +365,6 @@ class InputUangMasukFragment(val isEdit: Boolean) : Fragment() {
                 binding.etNotes.setText(description)
                 binding.etAmount.setText(amount.toString())
                 binding.etTypeIncome.setText(type)
-
-                showImage()
             }
         }
     }
